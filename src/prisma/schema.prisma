@@ -1,0 +1,67 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("POSTGRES_PRISMA_URL") // uses connection pooling
+  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
+}
+
+model HSUser {
+  id          String       @id @default(cuid())
+  username    String       @unique
+  email       String       @unique
+  verified    Boolean      @default(false)
+  clerkAuthId String       @unique
+  school      HSSchool?       @relation(fields: [schoolId], references: [id])
+  schoolId    String?
+  enrollments HSEnrollment[]
+}
+
+model HSSchool {
+  id       String   @id @default(cuid())
+  name     String
+  location String
+  courses  HSCourse[]
+  users    HSUser[]
+}
+
+model HSCourse {
+  id          String    @id @default(cuid())
+  name        String
+  description String
+  department  String
+  sections    HSSection[]
+  school      HSSchool    @relation(fields: [schoolId], references: [id])
+  schoolId    String
+}
+
+model HSSection {
+  id        String       @id @default(cuid())
+  name      String
+  course    HSCourse       @relation(fields: [courseId], references: [id])
+  courseId  String
+  teacher   HSTeacher      @relation(fields: [teacherId], references: [id])
+  teacherId String
+  students  HSEnrollment[]
+}
+
+model HSTeacher {
+  id       String    @id @default(cuid())
+  name     String
+  goat    Boolean  @default(false)
+  sections HSSection[]
+}
+
+model HSEnrollment {
+  id        String  @id @default(cuid())
+  user      HSUser    @relation(fields: [userId], references: [id])
+  userId    String
+  section  HSSection @relation(fields: [sectionId], references: [id])
+  sectionId String
+
+  @@unique([userId, sectionId], name: "userId_sectionId")
+}
