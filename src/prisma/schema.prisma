@@ -16,9 +16,10 @@ model HSUser {
   email       String       @unique
   verified    Boolean      @default(false)
   clerkAuthId String       @unique
-  school      HSSchool?       @relation(fields: [schoolId], references: [id])
-  schoolId    String?
+  school      HSSchool       @relation(fields: [schoolId], references: [id])
+  schoolId    String
   enrollments HSEnrollment[]
+  files       HSFile[]
 }
 
 model HSSchool {
@@ -41,7 +42,6 @@ model HSCourse {
 
 model HSSection {
   id        String       @id @default(cuid())
-  name      String
   course    HSCourse       @relation(fields: [courseId], references: [id])
   courseId  String
   teacher   HSTeacher      @relation(fields: [teacherId], references: [id])
@@ -64,4 +64,13 @@ model HSEnrollment {
   sectionId String
 
   @@unique([userId, sectionId], name: "userId_sectionId")
+}
+
+model HSFile {
+  id        String  @id @default(cuid())
+  name      String
+  uploadedBy HSUser @relation(fields: [uploadedById], references: [id])
+  uploadedById String
+  url       String
+  uploadedAt DateTime @default(now())
 }

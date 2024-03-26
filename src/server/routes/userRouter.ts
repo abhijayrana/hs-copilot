@@ -4,62 +4,86 @@ import { z } from "zod";
 import prisma from "@database/prisma";
 import { Prisma } from "@prisma/client";
 
-export const userRouter = router ({
-    signup: procedure
-        .input(z.object({
-            email: z.string().email(),
-            username: z.string().min(3),
-            clerkAuthId: z.string(),
-        })
-        )
-        .mutation(async (opts) => {
-            try {
-                console.log(opts.input);
-                const user = await prisma.hSUser.create({
-                  data: {
-                    email: opts.input.email,
-                    username: opts.input.username,
-                    clerkAuthId: opts.input.clerkAuthId,
-                  },
-                });
-                return user;
-              } catch (error) {
-                if (error instanceof Prisma.PrismaClientKnownRequestError) {
-                  if (error.code === 'P2002') {
-                    // Unique constraint violation
-                    const uniqueField = error.meta?.target as string[];
-                    if (uniqueField.includes('email')) {
-                      throw new TRPCError({
-                        code: 'BAD_REQUEST',
-                        message: 'Email already exists',
-                      });
-                    } else if (uniqueField.includes('username')) {
-                      throw new TRPCError({
-                        code: 'BAD_REQUEST',
-                        message: 'Username already exists',
-                      });
-                    } else if (uniqueField.includes('clerkAuthId')) {
-                      throw new TRPCError({
-                        code: 'BAD_REQUEST',
-                        message: 'Clerk Auth ID already exists',
-                      });
-                    }
-                  }
+export const userRouter = router({
+  trpcTester: procedure.query(() => {
+    return "Hello, World!";
+  }),
+  signup: procedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        username: z.string().min(3),
+        clerkAuthId: z.string(),
+        schoolId: z.string().optional(),
+      })
+    )
+    .mutation(async (opts) => {
+      try {
+        console.log(opts.input);
+        const user = await prisma.hSUser.create({
+          data: {
+            email: opts.input.email,
+            username: opts.input.username,
+            clerkAuthId: opts.input.clerkAuthId,
+            school: opts.input.schoolId
+              ? {
+                  connect: { id: opts.input.schoolId },
                 }
-                throw error;
-              }
-        }),
-    verifyEmailAddress: procedure
-        .input(z.object({
-            userClerkAuthId: z.string(),
-        }))
-        .mutation(async (opts) => {
-            console
-            const user = await prisma.hSUser.update({
-                where: { clerkAuthId: opts.input.userClerkAuthId },
-                data: { verified: true },
-            });
-            return user;
+              : undefined,
+          },
+        });
+        return user;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          if (error.code === "P2002") {
+            // Unique constraint violation
+            const uniqueField = error.meta?.target as string[];
+            if (uniqueField.includes("email")) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Email already exists",
+              });
+            } else if (uniqueField.includes("username")) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Username already exists",
+              });
+            } else if (uniqueField.includes("clerkAuthId")) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Clerk Auth ID already exists",
+              });
+            }
+          }
         }
-        )
-})
+        throw error;
+      }
+    }),
+  verifyEmailAddress: procedure
+    .input(
+      z.object({
+        userClerkAuthId: z.string(),
+      })
+    )
+    .mutation(async (opts) => {
+      console;
+      const user = await prisma.hSUser.update({
+        where: { clerkAuthId: opts.input.userClerkAuthId },
+        data: { verified: true },
+      });
+      return user;
+    }),
+    getUser: procedure
+    .input(
+      z.object({
+        clerkAuthId: z.string(),
+      })
+    )
+    .query(async (opts) => {
+      const user = await prisma.hSUser.findUnique({
+        where: { clerkAuthId: opts.input.clerkAuthId },
+      });
+      return user;
+    }),
+    
+});

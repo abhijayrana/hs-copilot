@@ -5,24 +5,33 @@ import { useRouter } from "next/navigation";
 import { trpc } from "@/app/_trpc/client";
 
 export default function SignUpForm() {
-  const { isLoaded, signUp, setActive } = useSignUp();
+  const { isLoaded, signUp } = useSignUp();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
-  const [pendingVerification, setPendingVerification] = useState(false);
-  const [code, setCode] = useState("");
+  const { data: schools, isLoading: isSchoolsLoading } =
+    trpc.school.getSchools.useQuery();
+  const [selectedSchoolId, setSelectedSchoolId] = useState("");
 
+  const { data, isLoading, isError, error } = trpc.user.trpcTester.useQuery();
   const addToDb = trpc.user.signup.useMutation();
-  const updateVerification = trpc.user.verifyEmailAddress.useMutation();
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (isError) {
+    return <div>Error: {error.message}</div>;
+  }
+
+  // src/components/SignUpForm.tsx
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (!isLoaded) {
       return;
     }
-
     try {
       await signUp
         .create({
@@ -31,8 +40,7 @@ export default function SignUpForm() {
           username,
         })
         .then((result) => {
-          if (result.status === "missing_requirements") {
-            console.log(result);
+          if (result.status === "complete") {
             if (
               !result.createdUserId ||
               !result.emailAddress ||
@@ -44,7 +52,9 @@ export default function SignUpForm() {
               email: result.emailAddress,
               username: result.username,
               clerkAuthId: result.createdUserId,
+              schoolId: selectedSchoolId, // Include the selected school ID
             });
+            router.push("/");
           } else {
             console.error(result);
           }
@@ -52,57 +62,11 @@ export default function SignUpForm() {
         .catch((error) => {
           console.error(error);
         });
-
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      setPendingVerification(true);
-      console.log("Pending verification");
     } catch (error) {
       console.error(error);
     }
   };
 
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isLoaded) {
-      return;
-    }
-    try {
-      const completeSignUp = await signUp.attemptEmailAddressVerification({
-        code,
-      });
-      if (completeSignUp.status !== "complete") {
-        /*  investigate the response, to see if there was an error
-           or if the user needs to complete more steps.*/
-        console.log(JSON.stringify(completeSignUp, null, 2));
-      }
-      if (completeSignUp.status === "complete") {
-        await setActive({ session: completeSignUp.createdSessionId });
-        updateVerification.mutate({
-          userClerkAuthId: completeSignUp.createdUserId!,
-        });
-      }
-    } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
-    }
-  };
-
-  // Once the sign-up form was submitted, verifying was set to true and as a result, this verification form is presented to the user to input their verification code.
-  if (pendingVerification) {
-    return (
-      <form onSubmit={handleVerify}>
-        <label id="code">Code</label>
-        <input
-          value={code}
-          id="code"
-          name="code"
-          onChange={(e) => setCode(e.target.value)}
-        />
-        <button type="submit">Complete Sign Up</button>
-      </form>
-    );
-  }
-
-  // Display the initial sign-up form to capture the email and password
   return (
     <form onSubmit={handleSubmit}>
       <div>
@@ -137,8 +101,26 @@ export default function SignUpForm() {
           onChange={(e) => setPassword(e.target.value)}
         />
       </div>
+      {!isSchoolsLoading && (
+        <div>
+          <label htmlFor="school">School</label>
+          <select
+            id="school"
+            name="school"
+            value={selectedSchoolId}
+            onChange={(e) => setSelectedSchoolId(e.target.value)}
+          >
+            <option value="">Select a school</option>
+            {schools!.map((school) => (
+              <option key={school.id} value={school.id}>
+                {school.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div>
-        <button type="submit">Verify Email</button>
+        <button type="submit">Sign Up</button>
       </div>
     </form>
   );
